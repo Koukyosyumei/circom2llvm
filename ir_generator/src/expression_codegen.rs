@@ -54,6 +54,7 @@ pub fn resolve_expr<'ctx>(
                     codegen
                         .builder
                         .build_call(called_fn, &arg_vals, "call")
+                        .expect("REASON")
                         .try_as_basic_value()
                         .left()
                         .unwrap()
@@ -230,7 +231,8 @@ fn resolve_prefix_op<'ctx>(
             unreachable!();
         }
     };
-    codegen.build_result_modulo(temp)
+    codegen.build_result_modulo(temp.expect("REASON"))
+    //.expect("REASON")
 }
 
 fn resolve_infix_op<'ctx>(
@@ -245,9 +247,15 @@ fn resolve_infix_op<'ctx>(
     let mut rval = rval;
     if lval.get_type() != rval.get_type() {
         if rval.get_type() == env.val_ty {
-            lval = codegen.builder.build_int_cast(lval, env.val_ty, "intcast");
+            lval = codegen
+                .builder
+                .build_int_cast(lval, env.val_ty, "intcast")
+                .expect("REASON");
         } else {
-            rval = codegen.builder.build_int_cast(rval, env.val_ty, "intcast");
+            rval = codegen
+                .builder
+                .build_int_cast(rval, env.val_ty, "intcast")
+                .expect("REASON");
         }
     }
     let temp = match infix_op {
@@ -261,7 +269,7 @@ fn resolve_infix_op<'ctx>(
         IntDiv => codegen.builder.build_int_signed_div(lval, rval, "sdiv"),
         Mod => codegen.builder.build_int_signed_rem(lval, rval, "mod"),
         Mul => codegen.builder.build_int_mul(lval, rval, "mul"),
-        Pow => codegen.build_pow(&[lval.into(), rval.into()], "pow"),
+        Pow => Ok(codegen.build_pow(&[lval.into(), rval.into()], "pow")),
         ShiftL => codegen.builder.build_left_shift(lval, rval, "lshift"),
         ShiftR => codegen
             .builder
@@ -288,7 +296,7 @@ fn resolve_infix_op<'ctx>(
             .builder
             .build_int_compare(IntPredicate::SLE, lval, rval, "sle"),
     };
-    codegen.build_result_modulo(temp)
+    codegen.build_result_modulo(temp.expect("REASON"))
 }
 
 pub fn flat_expressions<'ctx>(expr: &Expression) -> Vec<&Expression> {

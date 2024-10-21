@@ -57,10 +57,10 @@ pub fn resolve_stmt<'ctx>(
             // current -> if.true
             let mut cond = resolve_expr(env, codegen, scope, cond).into_int_value();
             if cond.get_type() != codegen.context.bool_type() {
-                cond =
-                    codegen
-                        .builder
-                        .build_int_compare(IntPredicate::EQ, cond, env.const_zero, "eq");
+                cond = codegen
+                    .builder
+                    .build_int_compare(IntPredicate::EQ, cond, env.const_zero, "eq")
+                    .expect("REASON");
             }
             codegen
                 .builder

@@ -1,4 +1,7 @@
-use crate::namer::{name_constraint, name_entry_block, name_if_block, name_intrinsinc_fn, name_inline_array, name_main_comp};
+use crate::namer::{
+    name_constraint, name_entry_block, name_if_block, name_inline_array, name_intrinsinc_fn,
+    name_main_comp,
+};
 use crate::utils::is_terminated_basicblock;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -39,14 +42,16 @@ impl<'ctx> CodeGen<'ctx> {
             .get_first_basic_block()
             .unwrap();
         if current_block == entry_block {
-            self.builder.build_alloca(val_ty, alloca_name)
+            self.builder
+                .build_alloca(val_ty, alloca_name)
+                .expect("REASON")
         } else {
             // Last instruction is branch.
             self.builder
                 .position_at(entry_block, &entry_block.get_last_instruction().unwrap());
             let res = self.builder.build_alloca(val_ty, alloca_name);
             self.builder.position_at_end(current_block);
-            res
+            res.expect("REASON")
         }
     }
 
@@ -98,7 +103,12 @@ impl<'ctx> CodeGen<'ctx> {
             &[cond.into(), lval.into(), rval.into()],
             inst_name,
         );
-        return res.try_as_basic_value().left().unwrap().into_int_value();
+        return res
+            .expect("REASON")
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_int_value();
     }
 
     // Prevent constant folding
@@ -106,7 +116,7 @@ impl<'ctx> CodeGen<'ctx> {
         let res = self
             .builder
             .build_call(self._utils_init_fn_val, &[], inst_name);
-        return res.try_as_basic_value().left().unwrap();
+        return res.expect("REASON").try_as_basic_value().left().unwrap();
     }
 
     pub fn build_result_modulo(&self, value: IntValue<'ctx>) -> IntValue<'ctx> {
@@ -125,6 +135,7 @@ impl<'ctx> CodeGen<'ctx> {
         return self
             .builder
             .build_call(self._utils_powi_fn_val, args, name)
+            .expect("REASON")
             .try_as_basic_value()
             .unwrap_left()
             .into_int_value();
@@ -152,10 +163,15 @@ impl<'ctx> CodeGen<'ctx> {
         let _ptr = self
             .builder
             .build_pointer_cast(ptr.clone(), default_ptr_ty, "ptr_cast");
+        let _ptr = _ptr.unwrap(); // Or use `?` to propagate the error
         let mut vals = vec![_ptr.into()];
+        // let mut vals = vec![_ptr.into()];
         for d in dims {
             if !d.is_const() {
-                println!("Error: Dimension is not a constant, current: {}", d.print_to_string());
+                println!(
+                    "Error: Dimension is not a constant, current: {}",
+                    d.print_to_string()
+                );
                 unreachable!();
             }
             vals.push(d.clone().into());
@@ -167,7 +183,11 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn build_instantiation_flag(&self, main_signature: &String) {
         self.module
             .add_global(self.context.bool_type(), None, "is_instantiation");
-        self.module.add_global(self.context.bool_type(), None, &name_main_comp(&main_signature));
+        self.module.add_global(
+            self.context.bool_type(),
+            None,
+            &name_main_comp(&main_signature),
+        );
     }
 
     pub fn build_direct_array_store(
@@ -227,7 +247,7 @@ pub fn init_codegen<'ctx>(
         .get_last_param()
         .unwrap()
         .into_pointer_value();
-    builder.build_store(gv_val, eq_val);
+    builder.build_store(gv_val, eq_val.unwrap());
     builder.build_return(None);
 
     // Add constraint array function
@@ -307,12 +327,17 @@ pub fn init_codegen<'ctx>(
     let base = builder.build_unsigned_int_to_float(origin_base, powi_base_ty, "utils_powi.base");
     let power = builder.build_int_cast(origin_power, powi_power_ty, "utils_powi.power");
     let powi = builder
-        .build_call(powi_fn_val, &[base.into(), power.into()], "utils_powi.cal")
+        .build_call(
+            powi_fn_val,
+            &[base.unwrap().into(), power.unwrap().into()],
+            "utils_powi.cal",
+        )
+        .expect("REASON")
         .try_as_basic_value()
         .unwrap_left();
     let ret =
         builder.build_float_to_unsigned_int(powi.into_float_value(), val_ty, "utils_powi.ret");
-    builder.build_return(Some(&ret));
+    builder.build_return(Some(&ret.unwrap()));
 
     let utils_init_fn_ret_ty = val_ty;
     let utils_init_fn_ty = utils_init_fn_ret_ty.fn_type(&[], false);

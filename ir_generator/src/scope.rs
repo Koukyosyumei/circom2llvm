@@ -88,10 +88,13 @@ impl<'ctx> Scope<'ctx> {
         } else {
             let ptr = self.var2ptr[name];
             if access.len() == 0 {
-                stored_val = codegen.builder.build_load(ptr, &final_inst_name);
+                stored_val = codegen
+                    .builder
+                    .build_load(ptr, &final_inst_name)
+                    .expect("REASON");
             } else {
                 let inst_name = name_getter("var");
-                stored_val = codegen.builder.build_load(ptr, &inst_name);
+                stored_val = codegen.builder.build_load(ptr, &inst_name).expect("REASON");
             }
         };
         let mut val;
@@ -183,6 +186,7 @@ impl<'ctx> Scope<'ctx> {
             ptr = codegen
                 .builder
                 .build_load(ptr, &inst_name)
+                .expect("REASON")
                 .into_pointer_value();
             let mut comp_access_idx: Option<usize> = None;
             let mut templ_name = "".to_string();
@@ -284,7 +288,7 @@ impl<'ctx> Scope<'ctx> {
             &name_getter("array"),
         );
         let res = codegen.builder.build_load(gep, inst_name);
-        res
+        res.expect("REASON")
     }
 
     fn set_to_array(
@@ -337,7 +341,12 @@ impl<'ctx> Scope<'ctx> {
         ptr: PointerValue<'ctx>,
         inst_name: &str,
     ) -> PointerValue<'ctx> {
-        unsafe { codegen.builder.build_in_bounds_gep(ptr, indexes, inst_name) }
+        unsafe {
+            codegen
+                .builder
+                .build_in_bounds_gep(ptr, indexes, inst_name)
+                .expect("REASON")
+        }
     }
 
     pub fn get_from_struct(
@@ -346,7 +355,7 @@ impl<'ctx> Scope<'ctx> {
         gep: PointerValue<'ctx>,
         inst_name: &String,
     ) -> BasicValueEnum<'ctx> {
-        codegen.builder.build_load(gep, inst_name)
+        codegen.builder.build_load(gep, inst_name).expect("REASON")
     }
 
     pub fn set_to_struct(
@@ -406,9 +415,9 @@ impl<'ctx> Scope<'ctx> {
                     .builder
                     .build_pointer_cast(struct_ptr, real_strt_ty, "ptr_cast");
         } else {
-            real_struct_ptr = struct_ptr;
+            real_struct_ptr = Ok(struct_ptr);
         }
-        return real_struct_ptr;
+        return real_struct_ptr.expect("REASON");
     }
 
     pub fn set_arg_val(&mut self, arg_name: &String, value: &BasicValueEnum<'ctx>) {
