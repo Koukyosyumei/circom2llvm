@@ -1,3 +1,27 @@
+declare void @llvm.trap()
+
+; Function to perform modular addition (a + b mod m)
+define i128 @mod_add(i128 %a, i128 %b, i128 %m) {
+entry:
+  %add = add i128 %a, %b
+  %result = srem i128 %add, %m
+  %is_neg = icmp slt i128 %result, 0
+  %pos_result = add i128 %result, %m
+  %final_result = select i1 %is_neg, i128 %pos_result, i128 %result
+  ret i128 %final_result
+}
+
+; Function to perform modular subtraction (a - b mod m)
+define i128 @mod_sub(i128 %a, i128 %b, i128 %m) {
+entry:
+  %sub = sub i128 %a, %b
+  %result = srem i128 %sub, %m
+  %is_neg = icmp slt i128 %result, 0
+  %pos_result = add i128 %result, %m
+  %final_result = select i1 %is_neg, i128 %pos_result, i128 %result
+  ret i128 %final_result
+}
+
 ; Function to perform modular multiplication (a * b mod m)
 define i128 @mod_mul(i128 %a, i128 %b, i128 %m) {
 entry:
@@ -24,11 +48,13 @@ entry:
   
   ; Ensure r and new_r are non-negative
   %r_neg = icmp slt i128 %modulus, 0
-  %r_abs = select i1 %r_neg, i128 sub (i128 0, i128 %modulus), i128 %modulus
+  %r_sub = sub i128 0, %modulus
+  %r_abs = select i1 %r_neg, i128 %r_sub, i128 %modulus
   store i128 %r_abs, i128* %r
   
   %new_r_neg = icmp slt i128 %input, 0
-  %new_r_abs = select i1 %new_r_neg, i128 add (i128 %input, i128 %modulus), i128 %input
+  %new_r_add = add i128 %input, %modulus
+  %new_r_abs = select i1 %new_r_neg, i128 %new_r_add, i128 %input
   store i128 %new_r_abs, i128* %new_r
   
   br label %loop
@@ -70,16 +96,29 @@ error:
 compute_result:
   %result = load i128, i128* %t
   %result_neg = icmp slt i128 %result, 0
-  %result_pos = select i1 %result_neg, i128 add (i128 %result, i128 %modulus), i128 %result
+  %result_add = add i128 %result, %modulus
+  %result_pos = select i1 %result_neg, i128 %result_add, i128 %result
   %final_result = srem i128 %result_pos, %modulus
   ret i128 %final_result
 }
 
+declare i32 @printf(i8*, ...)
+
+@.str = private constant [5 x i8] c"%ld\0A\00"
+
 ; Function to perform modular division (a / b mod m)
 define i128 @mod_div(i128 %a, i128 %b, i128 %m) {
 entry:
+  ; Check if b is zero
+  %b_is_zero = icmp eq i128 %b, 0
+  br i1 %b_is_zero, label %return_zero, label %compute_inverse
+
+return_zero:
+  ret i128 0
+
+compute_inverse:
   ; First, compute the modular inverse of b
-  %b_inv = call i128 @inverse(i128 %b, i128 %m)
+  %b_inv = call i128 @mod_inverse(i128 %b, i128 %m)
   
   ; Now multiply a with b_inv modulo m
   %result = call i128 @mod_mul(i128 %a, i128 %b_inv, i128 %m)
