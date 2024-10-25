@@ -7,7 +7,7 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic;
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
 use inkwell::types::{BasicType, BasicTypeEnum, IntType};
 use inkwell::values::{
     AnyValue, ArrayValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue,
@@ -368,6 +368,16 @@ pub fn init_codegen<'ctx>(
         context.append_basic_block(utils_arraydim_fn_val, &name_entry_block());
     builder.position_at_end(utils_arraydim_fn_entry_bb);
     builder.build_return(None);
+
+    let i128_type = context.i128_type();
+    let mod_operation_fn_ty = i128_type.fn_type(
+        &[i128_type.into(), i128_type.into(), i128_type.into()],
+        false,
+    );
+    module.add_function("mod_add", mod_operation_fn_ty, Some(Linkage::External));
+    module.add_function("mod_sub", mod_operation_fn_ty, Some(Linkage::External));
+    module.add_function("mod_mul", mod_operation_fn_ty, Some(Linkage::External));
+    module.add_function("mod_div", mod_operation_fn_ty, Some(Linkage::External));
 
     let codegen = CodeGen {
         context,
