@@ -374,6 +374,8 @@ pub fn init_codegen<'ctx>(
         &[i128_type.into(), i128_type.into(), i128_type.into()],
         false,
     );
+    module.add_function("mod_add", mod_operation_fn_ty, Some(Linkage::External));
+    module.add_function("mod_sub", mod_operation_fn_ty, Some(Linkage::External));
     module.add_function("mod_mul", mod_operation_fn_ty, Some(Linkage::External));
     module.add_function("mod_div", mod_operation_fn_ty, Some(Linkage::External));
 
