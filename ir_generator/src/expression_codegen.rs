@@ -7,12 +7,15 @@ use crate::expression_static::{
 use crate::namer::{name_inline_array, name_template_fn};
 use crate::scope::Scope;
 use crate::type_check::check_used_value;
+use inkwell::builder::BuilderError;
 use inkwell::types::BasicType;
 use inkwell::values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, IntValue, PointerValue};
 use inkwell::IntPredicate;
 use program_structure::ast::{
     Access, Expression, ExpressionInfixOpcode, ExpressionPrefixOpcode, Statement,
 };
+
+const FIELD_MODULUS: u64 = 9938766679346745377; // 279926033603397055746914466956409631037;
 
 pub fn resolve_expr<'ctx>(
     env: &GlobalInformation<'ctx>,
@@ -265,7 +268,32 @@ fn resolve_infix_op<'ctx>(
         BitXor => codegen.builder.build_xor(lval, rval, "xor"),
         BoolAnd => codegen.builder.build_and(lval, rval, "and"),
         BoolOr => codegen.builder.build_and(lval, rval, "or"),
-        Div => codegen.builder.build_int_signed_div(lval, rval, "sdiv"),
+        // Div => codegen.builder.build_int_signed_div(lval, rval, "sdiv"),
+        Div => {
+            let mod_div_fn = codegen
+                .module
+                .get_function("mod_div")
+                .expect("mod_div function not found");
+            let call_site_value = codegen
+                .builder
+                .build_call(
+                    mod_div_fn,
+                    &[
+                        inkwell::values::BasicMetadataValueEnum::IntValue(lval),
+                        inkwell::values::BasicMetadataValueEnum::IntValue(rval),
+                        inkwell::values::BasicMetadataValueEnum::IntValue(
+                            codegen.context.i128_type().const_int(FIELD_MODULUS, false),
+                        ),
+                    ],
+                    "mod_div",
+                )
+                .expect("Failed to build mod_div call");
+            // Convert CallSiteValue to IntValue
+            match call_site_value.try_as_basic_value().left() {
+                Some(basic_value) => Ok(basic_value.into_int_value()),
+                None => panic!("mod_div call returned void"),
+            }
+        }
         IntDiv => codegen.builder.build_int_signed_div(lval, rval, "sdiv"),
         Mod => codegen.builder.build_int_signed_rem(lval, rval, "mod"),
         Mul => codegen.builder.build_int_mul(lval, rval, "mul"),
