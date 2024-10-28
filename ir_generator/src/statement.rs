@@ -148,18 +148,17 @@ pub fn resolve_stmt<'ctx>(
             let rval = resolve_expr(env, codegen, scope, rhe);
             match op {
                 AssignOp::AssignConstraintSignal => {
+                    scope.set_var(env, codegen, var, access, rval);
                     let lval = scope.get_var(env, codegen, var, access);
                     codegen.build_constraint(lval, rval);
                 }
-                _ => (),
-            }
-            match op {
-                AssignOp::AssignConstraintSignal | AssignOp::AssignSignal => {
+                AssignOp::AssignSignal => {
                     scope.set_var(env, codegen, var, access, rval);
                 }
                 AssignOp::AssignVar => {
                     scope.set_var(env, codegen, var, access, rval);
                 }
+                _ => (),
             };
         }
         Statement::While {
